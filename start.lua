@@ -22,6 +22,7 @@ cmd:option ('-epc', 60, 'number of epochs')
 cmd:option ('-bat', 30, 'size of a minibatch')
 cmd:option ('-iter', 49980, 'number of iterations at each training pass')
 cmd:option ('-titer', 9990, 'number of iterations at each evaluation pass')
+cmd:option ('-mod', 'nil', 'name of the trained model to be loaded')
 cmd:text()
 opt = cmd:parse(arg)
 
@@ -49,6 +50,12 @@ else
 end
 
 print ('[loading vgg_net] time elapse: ' .. timer:time().real)
+
+if opt.mod then
+	-- load_model (opt.mod, vgg_net)
+	vgg_net = torch.load (opt.mod)
+	print (vgg_net)
+end
 
 -- load datasets
 load_data (vgg_net)

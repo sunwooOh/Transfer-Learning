@@ -38,10 +38,12 @@ function load_data (net)
 	timer:reset()
 	n_inputs = math.floor (opt.iter / opt.bat)
 
-	losses = {}
+	tr_losses = {}
+	te_losses = {}
 	tab = {}
 	tr_acctab = {}
 	te_acctab = {}
+	epoch_tab = {}
 
 	-- tmp = {}
 	-- te_acc = testing (net, testset.labels, 'test/processed/')
@@ -55,34 +57,50 @@ function load_data (net)
 		print ("	[[[ Epoch  " .. i .. ' / ' .. epochs ..' ]]]')
 		print ('------------------------------------------------------------------------')
 
-		_, tmp_loss, learn_rate, tr_acc = training (net, trainset.labels, 'train/processed/')
+		_, train_loss, learn_rate, tr_acc = training (net, trainset.labels, 'train/processed/')
 		
 		-- t_time_vals = torch.Tensor (time_vals)
 
 		--table.insert (tab, i)
 		--plot (torch.Tensor(i), loss_vals:norm(), learn_rate)
 
-		te_acc = testing (net, testset.labels, 'test/processed/')
+		test_loss, te_acc = testing (net, testset.labels, 'test/processed/')
 
-		for j = 1, n_inputs do
-			table.insert (tab, (i-1)*n_inputs+j)
-			table.insert (losses, tmp_loss[j])
-			table.insert (tr_acctab, tr_acc[j])
-			table.insert (te_acctab, te_acc[j])
-		end
+		-- for j = 1, n_inputs do
+		-- 	table.insert (tab, (i-1)*n_inputs+j)
+		-- 	table.insert (tr_losses, train_loss[j])
+		-- 	table.insert (te_losses, test_loss[j])
+		-- 	table.insert (tr_acctab, tr_acc[j])
+		-- 	table.insert (te_acctab, te_acc[j])
+		-- 	table.insert ()
+		-- end
 
-		loss_vals = torch.Tensor (losses)
-		x_vals = torch.Tensor (tab)
-		tr_accvals = torch.Tensor (tr_acctab)
-		te_accvals = torch.Tensor (te_acctab)
+		-- tr_loss_vals = torch.Tensor (tr_losses)
+		-- te_loss_vals = torch.Tensor (te_loss_vals)
+		-- x_vals = torch.Tensor (tab)
+		-- tr_accvals = torch.Tensor (tr_acctab)
+		-- te_accvals = torch.Tensor (te_acctab)
 
 		-- x_size = x_vals:size(1)
-		te_size = te_accvals:size(1)
-	 	nar_time = x_vals:narrow(1, 1, te_size)
+		-- te_size = te_accvals:size(1)
+	 -- 	nar_time = x_vals:narrow(1, 1, te_size)
 
-		plot (x_vals, loss_vals, 'loss' .. learn_rate)
-		plot (x_vals, tr_accvals, 'training_accuracy')
-		plot (nar_time, te_accvals, 'test_accuracy')
+		-- plot (x_vals, tr_loss_vals, 'loss' .. learn_rate, 'Loss')
+		-- plot (nar_time, te_loss_vals, 'test loss' .. learn_rate, 'Loss')
+		-- plot (x_vals, tr_accvals, 'training_accuracy', 'Accuracy')
+		-- plot (nar_time, te_accvals, 'test_accuracy', 'Accuracy')
+
+		table.insert (epoch_tab, i)
+		table.insert (tr_losses, train_loss[#train_loss])
+		table.insert (te_losses, test_loss[#test_loss])
+		table.insert (tr_acctab, tr_acc[#tr_acc])
+		table.insert (te_acctab, te_acc[#te_acc])
+
+		plot (epoch_tab, torch.Tensor(tr_losses), 'training_loss_' .. learn_rate, 'Loss')
+		plot (epoch_tab, torch.Tensor(te_losses), 'test_loss', 'Loss')
+		plot (epoch_tab, torch.Tensor(tr_acctab), 'training_accuracy', 'Accuracy')
+		plot (epoch_tab, torch.Tensro(te_acctab), 'test_accuracy', 'Accuracy')
+
 	end
 
 	netsav = net:clone('weight', 'bias') 
@@ -181,7 +199,7 @@ function training (vgg_net, image_labels, fname)
 		-- optim_state = { learning_rate = 0.000001 }
 		-- optim_state = { learningRate = 0.0000000001, weightDecay = 0.0005 }
 		weight_decay = 0.005
-		learning_rate = 0.005
+		learning_rate = 0.0005
 
 		-- training
 		grad_params:zero()
@@ -280,6 +298,9 @@ function testing (vgg_net, image_labels, fname)
 
 	conf_mat = torch.DoubleTensor (10, 10):zero()
 	accs = {}
+	loss_vals = {}
+
+	criterion = nn.ClassNLLCriterion()
 
 	-- file = torch.DiskFile ('test_confusion.txt', 'w')
 	
@@ -325,10 +346,13 @@ function testing (vgg_net, image_labels, fname)
 
 		-- test
 		output = vgg_net:forward (c_inputs)
+		loss = criterion:forward (output, targets)
+
 		-- confusion:batchAdd (output, targets)
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
 		table.insert (accs, accuracy)
+		table.insert (loss_vals, loss)
 
 		print ('[ ' .. i+29 .. ' / ' .. max_iter .. ' ] Accuracy: ' .. accuracy)
 		print (conf_mat)
@@ -369,7 +393,7 @@ function measure_acc (mat, output, targets)		-- mat : 10 x 10
 
 end
 
-function plot (time, val, fname)
+function plot (time, val, fname, ylabel)
 	fpath = 'plots/'
 
 	-- if torch.type (arb) == 'number' then
@@ -380,8 +404,8 @@ function plot (time, val, fname)
 
 		gnuplot.plot (time, val, '-')
 		-- gnuplot.xlabel ('time (s)')
-		gnuplot.xlabel ('Iterations')
-		gnuplot.ylabel ('Accuracy')
+		gnuplot.xlabel ('Epochs')
+		gnuplot.ylabel (ylabel)
 
 		gnuplot.plotflush ()
 	-- else
