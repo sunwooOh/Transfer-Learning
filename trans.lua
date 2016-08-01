@@ -64,7 +64,7 @@ function load_data (net)
 		--table.insert (tab, i)
 		--plot (torch.Tensor(i), loss_vals:norm(), learn_rate)
 
-		test_loss, te_acc = testing (net, testset.labels, 'test/processed/')
+		te_acc = testing (net, testset.labels, 'test/processed/')
 
 		-- for j = 1, n_inputs do
 		-- 	table.insert (tab, (i-1)*n_inputs+j)
@@ -92,14 +92,14 @@ function load_data (net)
 
 		table.insert (epoch_tab, i)
 		table.insert (tr_losses, train_loss[#train_loss])
-		table.insert (te_losses, test_loss[#test_loss])
+		-- table.insert (te_losses, test_loss[#test_loss])
 		table.insert (tr_acctab, tr_acc[#tr_acc])
 		table.insert (te_acctab, te_acc[#te_acc])
 
-		plot (epoch_tab, torch.Tensor(tr_losses), 'training_loss_' .. learn_rate, 'Loss')
-		plot (epoch_tab, torch.Tensor(te_losses), 'test_loss', 'Loss')
-		plot (epoch_tab, torch.Tensor(tr_acctab), 'training_accuracy', 'Accuracy')
-		plot (epoch_tab, torch.Tensro(te_acctab), 'test_accuracy', 'Accuracy')
+		plot (torch.Tensor(epoch_tab), torch.Tensor(tr_losses), 'training_loss_' .. learn_rate, 'Loss')
+		-- plot (epoch_tab, torch.Tensor(te_losses), 'test_loss', 'Loss')
+		plot (torch.Tensor(epoch_tab), torch.Tensor(tr_acctab), 'training_accuracy', 'Accuracy')
+		plot (torch.Tensor(epoch_tab), torch.Tensor(te_acctab), 'test_accuracy', 'Accuracy')
 
 	end
 
@@ -300,7 +300,7 @@ function testing (vgg_net, image_labels, fname)
 	accs = {}
 	loss_vals = {}
 
-	criterion = nn.ClassNLLCriterion()
+	criterion = nn.ClassNLLCriterion():cuda()
 
 	-- file = torch.DiskFile ('test_confusion.txt', 'w')
 	
@@ -346,13 +346,13 @@ function testing (vgg_net, image_labels, fname)
 
 		-- test
 		output = vgg_net:forward (c_inputs)
-		loss = criterion:forward (output, targets)
+		-- loss = criterion:forward (output, targets)
 
 		-- confusion:batchAdd (output, targets)
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
 		table.insert (accs, accuracy)
-		table.insert (loss_vals, loss)
+		-- table.insert (loss_vals, loss)
 
 		print ('[ ' .. i+29 .. ' / ' .. max_iter .. ' ] Accuracy: ' .. accuracy)
 		print (conf_mat)
