@@ -51,7 +51,7 @@ end
 
 print ('[loading vgg_net] time elapse: ' .. timer:time().real)
 
-if opt.mod then
+if opt.mod ~= 'nil' then
 	-- load_model (opt.mod, vgg_net)
 	vgg_net = torch.load (opt.mod)
 	print (vgg_net)

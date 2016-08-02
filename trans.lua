@@ -27,10 +27,12 @@ function load_data (net)
 
 	print ('[loading data] time elapse: ' .. timer:time().real)
 
-	-- preprocess_data (trainset.data, 'train/processed/')
-	-- preprocess_data (testset.data, 'test/processed/')
+	preprocess_data (trainset.data, 'train/processed/')
+	preprocess_data (testset.data, 'test/processed/')
 
 	print ('[preprocessing data] time elapse: ' .. timer:time().real)
+
+	print (fuck)
 
 	epochs = opt.epc
 	batch_size = opt.bat
@@ -115,6 +117,8 @@ function preprocess_data (image_set, fname)
 		base_img = image_set:select(1, i)
 		res_img = base_img:resize (3,32,32)
 		mod_img = image.scale (res_img, 224, 224)
+
+		mod_img:mul(255)
 
 		-- normalizing
 		for j = 1, 3 do
