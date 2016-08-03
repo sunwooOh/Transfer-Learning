@@ -23,6 +23,7 @@ cmd:option ('-bat', 30, 'size of a minibatch')
 cmd:option ('-iter', 49980, 'number of iterations at each training pass')
 cmd:option ('-titer', 9990, 'number of iterations at each evaluation pass')
 cmd:option ('-mod', 'nil', 'name of the trained model to be loaded')
+cmd:option ('-lrate', 0.002, 'learning rate')
 cmd:text()
 opt = cmd:parse(arg)
 

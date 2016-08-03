@@ -27,12 +27,10 @@ function load_data (net)
 
 	print ('[loading data] time elapse: ' .. timer:time().real)
 
-	preprocess_data (trainset.data, 'train/processed/')
-	preprocess_data (testset.data, 'test/processed/')
+	-- preprocess_data (trainset.data, 'train/processed/')
+	-- preprocess_data (testset.data, 'test/processed/')
 
 	print ('[preprocessing data] time elapse: ' .. timer:time().real)
-
-	print (fuck)
 
 	epochs = opt.epc
 	batch_size = opt.bat
@@ -42,10 +40,11 @@ function load_data (net)
 
 	tr_losses = {}
 	te_losses = {}
-	tab = {}
+	loss_means = {}
 	tr_acctab = {}
 	te_acctab = {}
 	epoch_tab = {}
+	s = 1
 
 	-- tmp = {}
 	-- te_acc = testing (net, testset.labels, 'test/processed/')
@@ -68,45 +67,32 @@ function load_data (net)
 
 		te_acc = testing (net, testset.labels, 'test/processed/')
 
-		-- for j = 1, n_inputs do
-		-- 	table.insert (tab, (i-1)*n_inputs+j)
-		-- 	table.insert (tr_losses, train_loss[j])
-		-- 	table.insert (te_losses, test_loss[j])
-		-- 	table.insert (tr_acctab, tr_acc[j])
-		-- 	table.insert (te_acctab, te_acc[j])
-		-- 	table.insert ()
-		-- end
+		for j = 1, n_inputs do
+			table.insert (tr_losses, train_loss[j])
+--			table.insert (te_losses, test_loss[j])
+			table.insert (tr_acctab, tr_acc[j])
+			table.insert (te_acctab, te_acc[j])
+		end
+		table.insert (loss_means, torch.Tensor(train_loss):mean())
 
-		-- tr_loss_vals = torch.Tensor (tr_losses)
-		-- te_loss_vals = torch.Tensor (te_loss_vals)
+		tr_loss_vals = torch.Tensor (tr_losses)
+		te_loss_vals = torch.Tensor (te_losses)
 		-- x_vals = torch.Tensor (tab)
-		-- tr_accvals = torch.Tensor (tr_acctab)
-		-- te_accvals = torch.Tensor (te_acctab)
+		tr_accvals = torch.Tensor (tr_acctab)
+		te_accvals = torch.Tensor (te_acctab)
+		t_loss_means = torch.Tensor (loss_means)
 
-		-- x_size = x_vals:size(1)
-		-- te_size = te_accvals:size(1)
-	 -- 	nar_time = x_vals:narrow(1, 1, te_size)
+		plot (nil, tr_accvals, 'Epoch', 'Accuracy (%)', 'Training Accuracy', 0)
+		plot (nil, te_accvals, 'Epoch', 'Accuracy (%)', 'Validation Accuracy', 0)
+		plot (nil, tr_loss_vals, 'Iteration', 'Loss', 'Training Loss', 1)
+		plot_mult (nil, tr_accvals, te_accvals, 'Epoch', 'Training', 'Validation', 'Accuracy (%)', 'Training and Validation Accuracies')
+		plot (nil, t_loss_means, 'Epoch', 'Loss', 'Training Loss (epc)', 0)
 
-		-- plot (x_vals, tr_loss_vals, 'loss' .. learn_rate, 'Loss')
-		-- plot (nar_time, te_loss_vals, 'test loss' .. learn_rate, 'Loss')
-		-- plot (x_vals, tr_accvals, 'training_accuracy', 'Accuracy')
-		-- plot (nar_time, te_accvals, 'test_accuracy', 'Accuracy')
+		netsav = net:clone('weight', 'bias') 
+		torch.save ('vgg_fine_tuned_' .. i .. '.t7', netsav)
 
-		table.insert (epoch_tab, i)
-		table.insert (tr_losses, train_loss[#train_loss])
-		-- table.insert (te_losses, test_loss[#test_loss])
-		table.insert (tr_acctab, tr_acc[#tr_acc])
-		table.insert (te_acctab, te_acc[#te_acc])
-
-		plot (torch.Tensor(epoch_tab), torch.Tensor(tr_losses), 'training_loss_' .. learn_rate, 'Loss')
-		-- plot (epoch_tab, torch.Tensor(te_losses), 'test_loss', 'Loss')
-		plot (torch.Tensor(epoch_tab), torch.Tensor(tr_acctab), 'training_accuracy', 'Accuracy')
-		plot (torch.Tensor(epoch_tab), torch.Tensor(te_acctab), 'test_accuracy', 'Accuracy')
 
 	end
-
-	netsav = net:clone('weight', 'bias') 
-	torch.save ('vgg_fine_tuned.t7', netsav)
 
 
 end
@@ -185,6 +171,8 @@ function training (vgg_net, image_labels, fname)
 
 			img = image.load ('data/' .. fname .. idx .. '.png', 3, 'double')
 			img = img:resize (3, 224, 224)
+			
+			img:mul(255)
 
 			if bat%batch_size ~= 0 then
 				inputs[bat%batch_size]:copy (img)
@@ -203,7 +191,7 @@ function training (vgg_net, image_labels, fname)
 		-- optim_state = { learning_rate = 0.000001 }
 		-- optim_state = { learningRate = 0.0000000001, weightDecay = 0.0005 }
 		weight_decay = 0.005
-		learning_rate = 0.0005
+		learning_rate = opt.lrate
 
 		-- training
 		grad_params:zero()
@@ -227,16 +215,15 @@ function training (vgg_net, image_labels, fname)
 		-- grad_params:add (params:clone ():mul (weight_decay))
 
 		-- ratio of weights:update 		-- uncomment to activate
-		-- param_scale = params:norm()
-		-- update_scale = (grad_params*learning_rate):norm()
-		-- print ('Ratio (weights : updates) = ' .. update_scale/param_scale) 
+		param_scale = params:norm()
+		update_scale = (grad_params*learning_rate):norm()
+		print ('Ratio (weights : updates) = ' .. update_scale/param_scale) 
 
 		-- vanilla update the weights
 		params:add(grad_params:mul(-learning_rate))
 	
 		-- measure the accuracy
 		-- confusion:batchAdd (output, targets)
-		print ("[before measure_acc] time elapse: " .. timer:time().real)
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
 		-- if i % 600 == 0 then
@@ -391,44 +378,63 @@ function measure_acc (mat, output, targets)		-- mat : 10 x 10
 	end
 	global_correct = correct / mat:sum() * 100
 
-	print ('[measuring accuracy] time elapse: ' .. timer:time().real)
-
 	return mat, global_correct
 
 end
 
-function plot (time, val, fname, ylabel)
+function plot (x_val, y_val, xlabel, ylabel, _title, line)
 	fpath = 'plots/'
+	file_name = 'lr' .. learning_rate .. 'bat' .. batch_size .. 'ti' .. opt.titer
+	if not paths.dirp (fpath .. file_name) then
+		os.execute ('mkdir ' .. fpath .. file_name)
+	end
+	fname = _title:gsub("%s+", "") .. '.png'
 
-	-- if torch.type (arb) == 'number' then
-		-- fname = 'loss' .. learn_rate .. '.png'
-		fname = fname .. '.png'
+	print ('[utility.lua/plot] Plotting ' .. fpath..fname.. ' with title '.._title)
 
-		gnuplot.pngfigure (fpath .. fname)
+	p = gnuplot.pngfigure (fpath .. file_name .. fname)
 
-		gnuplot.plot (time, val, '-')
-		-- gnuplot.xlabel ('time (s)')
-		gnuplot.xlabel ('Epochs')
-		gnuplot.ylabel (ylabel)
+	gnuplot.grid (true)
+	gnuplot.title (_title)
+	gnuplot.xlabel (xlabel)
+	gnuplot.ylabel (ylabel)
 
-		gnuplot.plotflush ()
-	-- else
-	-- 	fname = 'accuracy.png'
+	if line == 1 then
+		gnuplot.plot (y_val, '-')
+	else
+		gnuplot.plot (y_val)
+	end
+	
+	gnuplot.plotflush ()
+	gnuplot.close (p)
 
-	-- 	gnuplot.pngfigure (fpath .. fname)
+end
 
-	-- 	arb_size = arb:size(1)
-	-- 	val_size = val:size(1)
-	-- 	nar_time = time:narrow(1, 1, arb_size):clone()
+function plot_mult (x_val, y_val1, y_val2, xlabel, ylabel1, ylabel2, ylabel, _title)
+	fpath = 'plots/'
+	file_name = 'lr' .. learning_rate .. 'bat' .. batch_size .. 'ti' .. opt.titer
+	if not paths.dirp (fpath .. file_name) then
+		os.execute ('mkdir ' .. fpath .. file_name)
+	end
+	fname = _title:gsub("%s+", "") .. '.png'
 
-	-- 	gnuplot.plot (
-	-- 		{ 'training', time, val, '-' },
-	-- 		{ 'testing', nar_time:mul(val_size/arb_size), arb, '-' }
-	-- 	)
-	-- 	gnuplot.xlabel ('iterations')
-	-- 	gnuplot.ylabel ('accuracy')
-	-- 	gnuplot.plotflush ()
-	-- end
+	print ('[utility.lua/plot] Plotting ' .. fpath..fname.. ' with title '.._title)
+
+	p = gnuplot.pngfigure (fpath .. file_name .. fname)
+
+	gnuplot.grid (true)
+	gnuplot.title (_title)
+	gnuplot.xlabel (xlabel)
+	gnuplot.ylabel (ylabel)
+
+	gnuplot.plot (
+		{ ylabel1, y_val1, '+-' },
+		{ ylabel2, y_val2, '+-' }
+	)
+
+	gnuplot.plotflush ()
+	gnuplot.close (p)
+
 end
 
 -- load vgg net with loadcaffe module
