@@ -58,7 +58,7 @@ function load_data (net)
 		print ("	[[[ Epoch  " .. i .. ' / ' .. epochs ..' ]]]')
 		print ('------------------------------------------------------------------------')
 
-		_, train_loss, learn_rate, tr_acc = training (net, trainset.labels, 'train/processed/')
+		_, train_loss, tr_acc = training (net, trainset.labels, 'train/processed/')
 		
 		-- t_time_vals = torch.Tensor (time_vals)
 
@@ -69,10 +69,9 @@ function load_data (net)
 
 		for j = 1, n_inputs do
 			table.insert (tr_losses, train_loss[j])
---			table.insert (te_losses, test_loss[j])
-			table.insert (tr_acctab, tr_acc[j])
-			table.insert (te_acctab, te_acc[j])
 		end
+		table.insert (tr_acctab, tr_acc)
+		table.insert (te_acctab, te_acc)
 		table.insert (loss_means, torch.Tensor(train_loss):mean())
 
 		tr_loss_vals = torch.Tensor (tr_losses)
@@ -280,7 +279,7 @@ function training (vgg_net, image_labels, fname)
 
 	----------------------------------------------------------------------------------------------
 
-	return time_vals, loss_vals, learning_rate, accs
+	return time_vals, loss_vals, accuracy
 end
 
 function testing (vgg_net, image_labels, fname)
@@ -351,7 +350,7 @@ function testing (vgg_net, image_labels, fname)
 	print ('..............................................................')
 	-- print (confusion)
 
-	return accs
+	return accuracy
 
 	-- file:writeObject ('.................................................................')
 	
@@ -392,7 +391,7 @@ function plot (x_val, y_val, xlabel, ylabel, _title, line)
 
 	print ('[utility.lua/plot] Plotting ' .. fpath..fname.. ' with title '.._title)
 
-	p = gnuplot.pngfigure (fpath .. file_name .. fname)
+	p = gnuplot.pngfigure (fpath .. file_name .. '/'.. fname)
 
 	gnuplot.grid (true)
 	gnuplot.title (_title)
@@ -420,7 +419,7 @@ function plot_mult (x_val, y_val1, y_val2, xlabel, ylabel1, ylabel2, ylabel, _ti
 
 	print ('[utility.lua/plot] Plotting ' .. fpath..fname.. ' with title '.._title)
 
-	p = gnuplot.pngfigure (fpath .. file_name .. fname)
+	p = gnuplot.pngfigure (fpath .. file_name .. '/' .. fname)
 
 	gnuplot.grid (true)
 	gnuplot.title (_title)
