@@ -109,8 +109,8 @@ function preprocess_data (image_set, fname)
 		for j = 1, 3 do
 			img_mean = mod_img [{ {j}, {}, {} }]:mean()
 			img_std = mod_img [{ {j}, {}, {} }]:std()
-			mod_img [{ {j}, {}, {} }]:add(-img_mean)
-			mod_img [{ {j}, {}, {} }]:div(img_std)
+			-- mod_img [{ {j}, {}, {} }]:add(-img_mean)
+			-- mod_img [{ {j}, {}, {} }]:div(img_std)
 		end
 
 		-- transform: RGB to BGR
@@ -155,6 +155,11 @@ function training (vgg_net, image_labels, fname)
 	loss_vals = {}
 	accs = {}
 	output = torch.DoubleTensor (batch_size, 10)
+	vgg_mean = {
+		g = 103.939,
+		b = 116.779,
+		r = 123.68
+	}
 
 	-- randomize inputs and targets
 	indices = torch.randperm(50000)
@@ -182,6 +187,12 @@ function training (vgg_net, image_labels, fname)
 			end
 
 		end
+
+		inputs[{ {}, {1}, {}, {} }]:add (-vgg_mean.g)
+		inputs[{ {}, {2}, {}, {} }]:add (-vgg_mean.b)
+		inputs[{ {}, {3}, {}, {} }]:add (-vgg_mean.r)
+
+		print (inputs:mean())
 
 		c_inputs = inputs:cuda ()
 		c_targets = targets:cuda ()
