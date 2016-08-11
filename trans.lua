@@ -27,8 +27,8 @@ function load_data (net)
 
 	print ('[loading data] time elapse: ' .. timer:time().real)
 
-	-- preprocess_data (trainset.data, 'train/processed/')
-	-- preprocess_data (testset.data, 'test/processed/')
+	preprocess_data (trainset.data, 'train/processed/')
+	preprocess_data (testset.data, 'test/processed/')
 
 	print ('[preprocessing data] time elapse: ' .. timer:time().real)
 
@@ -46,12 +46,6 @@ function load_data (net)
 	epoch_tab = {}
 	s = 1
 
-	-- tmp = {}
-	-- te_acc = testing (net, testset.labels, 'test/processed/')
-	-- for i = 1, #te_acc do
-	-- 	tmp[i] = i
-	-- end
-	-- plot (tmp, te_acc, 'initial acc')
 
 	for i = 1, epochs do
 		print ('------------------------------------------------------------------------')
@@ -59,12 +53,6 @@ function load_data (net)
 		print ('------------------------------------------------------------------------')
 
 		_, train_loss, tr_acc = training (net, trainset.labels, 'train/processed/')
-		
-		-- t_time_vals = torch.Tensor (time_vals)
-
-		--table.insert (tab, i)
-		--plot (torch.Tensor(i), loss_vals:norm(), learn_rate)
-
 		te_acc = testing (net, testset.labels, 'test/processed/')
 
 		for j = 1, n_inputs do
@@ -89,8 +77,6 @@ function load_data (net)
 
 		netsav = net:clone('weight', 'bias') 
 		torch.save ('vgg_fine_tuned_' .. i .. '.t7', netsav)
-
-
 	end
 
 
@@ -102,16 +88,6 @@ function preprocess_data (image_set, fname)
 		base_img = image_set:select(1, i)
 		res_img = base_img:resize (3,32,32)
 		mod_img = image.scale (res_img, 224, 224)
-
-		mod_img:mul(255)
-
-		-- normalizing
-		for j = 1, 3 do
-			img_mean = mod_img [{ {j}, {}, {} }]:mean()
-			img_std = mod_img [{ {j}, {}, {} }]:std()
-			-- mod_img [{ {j}, {}, {} }]:add(-img_mean)
-			-- mod_img [{ {j}, {}, {} }]:div(img_std)
-		end
 
 		-- transform: RGB to BGR
 		chan_r = mod_img [{ {1}, {}, {} }]
@@ -132,14 +108,10 @@ function training (vgg_net, image_labels, fname)
 	epochs = opt.epc
 	conf_mat = torch.DoubleTensor (10, 10):zero()
 
-	-- file = torch.DiskFile ('train_confusion.txt', 'w')
-
 	print ('Start training......................................................')
-	-- file:writeObject ('Start training...')
 	print ('................................................................')
 
 	if opt.gpu == 1 then
-		-- c_image_labels = image_labels:cuda()
 		criterion = nn.ClassNLLCriterion():cuda()
 	else
 		criterion = nn.ClassNLLCriterion()
@@ -175,8 +147,13 @@ function training (vgg_net, image_labels, fname)
 
 			img = image.load ('data/' .. fname .. idx .. '.png', 3, 'double')
 			img = img:resize (3, 224, 224)
-			
+		
+			image.save ('before_mul.png', img)	
+			print (img)
+				
 			img:mul(255)
+
+			image.save ('after_mul.png', img)
 
 			if bat%batch_size ~= 0 then
 				inputs[bat%batch_size]:copy (img)
@@ -188,6 +165,7 @@ function training (vgg_net, image_labels, fname)
 
 		end
 
+		print (inputs:mean())
 		inputs[{ {}, {1}, {}, {} }]:add (-vgg_mean.g)
 		inputs[{ {}, {2}, {}, {} }]:add (-vgg_mean.b)
 		inputs[{ {}, {3}, {}, {} }]:add (-vgg_mean.r)
@@ -197,8 +175,6 @@ function training (vgg_net, image_labels, fname)
 		c_inputs = inputs:cuda ()
 		c_targets = targets:cuda ()
 
---		optim_state = { learning_rate = 0.00000000001, momentum = 0.9, weight_decay = 5e-4 }
-		-- optim_state = { learning_rate = 0.000001 }
 		-- optim_state = { learningRate = 0.0000000001, weightDecay = 0.0005 }
 		weight_decay = 0.005
 		learning_rate = opt.lrate

@@ -31,13 +31,14 @@ opt = cmd:parse(arg)
 timer = torch.Timer ()
 
 -- load VGG 16 network
-vgg_net = load_vgg_net ()
---vgg_net:add(nn.Linear(4096, #classes))
---vgg_net:add(nn.LogSoftMax())
+model_path = opt.mod
+if model_path ~= 'nil' then
+	vgg_net = torch.load (opt.mod)
+else
+	vgg_net = load_vgg_net ()
+end
 
-if opt.gpu == 1 then	
---	vgg_net:add(nn.Linear(4096, #classes):cuda())
---	vgg_net:add(nn.LogSoftMax():cuda())
+if opt.gpu == 1 then
 	vgg_net:add(nn.Linear(4096, #classes))
 	vgg_net:add(nn.LogSoftMax())
 --	cudnn.convert (vgg_net, cudnn)
@@ -52,13 +53,5 @@ end
 
 print ('[loading vgg_net] time elapse: ' .. timer:time().real)
 
-if opt.mod ~= 'nil' then
-	-- load_model (opt.mod, vgg_net)
-	vgg_net = torch.load (opt.mod)
-	print (vgg_net)
-end
-
--- load datasets
+-- load datasets & start training
 load_data (vgg_net)
-
--- test(vgg_net)
