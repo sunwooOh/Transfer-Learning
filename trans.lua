@@ -27,8 +27,8 @@ function load_data (net)
 
 	print ('[loading data] time elapse: ' .. timer:time().real)
 
-	preprocess_data (trainset.data, 'train/processed/')
-	preprocess_data (testset.data, 'test/processed/')
+--	preprocess_data (trainset.data, 'train/processed/')
+--	preprocess_data (testset.data, 'test/processed/')
 
 	print ('[preprocessing data] time elapse: ' .. timer:time().real)
 
@@ -75,8 +75,10 @@ function load_data (net)
 		plot_mult (nil, tr_accvals, te_accvals, 'Epoch', 'Training', 'Validation', 'Accuracy (%)', 'Training and Validation Accuracies')
 		plot (nil, t_loss_means, 'Epoch', 'Loss', 'Training Loss (epc)', 0)
 
-		netsav = net:clone('weight', 'bias') 
-		torch.save ('vgg_fine_tuned_' .. i .. '.t7', netsav)
+		if i == epochs then
+			netsav = net:clone('weight', 'bias') 
+			torch.save ('vgg_fine_tuned_' .. i .. '.t7', netsav)
+		end
 	end
 
 
@@ -88,6 +90,8 @@ function preprocess_data (image_set, fname)
 		base_img = image_set:select(1, i)
 		res_img = base_img:resize (3,32,32)
 		mod_img = image.scale (res_img, 224, 224)
+
+		mod_img:div (255)
 
 		-- transform: RGB to BGR
 		chan_r = mod_img [{ {1}, {}, {} }]
@@ -148,12 +152,7 @@ function training (vgg_net, image_labels, fname)
 			img = image.load ('data/' .. fname .. idx .. '.png', 3, 'double')
 			img = img:resize (3, 224, 224)
 		
-			image.save ('before_mul.png', img)	
-			print (img)
-				
 			img:mul(255)
-
-			image.save ('after_mul.png', img)
 
 			if bat%batch_size ~= 0 then
 				inputs[bat%batch_size]:copy (img)
@@ -293,6 +292,12 @@ function testing (vgg_net, image_labels, fname)
 
 	indices = torch.randperm(10000)
 
+	vgg_mean = {
+		g = 103.939,
+		b = 116.779,
+		r = 123.68
+	}
+
 	-- for i = 1, image_set:size(1) do
 	for i = 1, max_iter, batch_size do
 		inputs = torch.DoubleTensor (batch_size, 3, 224, 224)
@@ -304,6 +309,7 @@ function testing (vgg_net, image_labels, fname)
 
 			img = image.load ('data/' .. fname .. idx .. '.png', 3, 'double')
 			img = img:resize (3, 224, 224)
+			img:mul (255)
 			
 			if bat%batch_size ~= 0 then
 				inputs[bat%batch_size]:copy (img)
@@ -314,6 +320,10 @@ function testing (vgg_net, image_labels, fname)
 			end
 
 		end
+
+		inputs[{ {}, {1}, {}, {} }]:add (-vgg_mean.g)
+		inputs[{ {}, {2}, {}, {} }]:add (-vgg_mean.b)
+		inputs[{ {}, {3}, {}, {} }]:add (-vgg_mean.r)
 
 		c_inputs = torch.CudaTensor (batch_size, 3, 224, 224)
 		c_targets = torch.CudaTensor (batch_size)
