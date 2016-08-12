@@ -24,6 +24,7 @@ cmd:option ('-iter', 49980, 'number of iterations at each training pass')
 cmd:option ('-titer', 9990, 'number of iterations at each evaluation pass')
 cmd:option ('-mod', 'nil', 'name of the trained model to be loaded')
 cmd:option ('-lrate', 0.002, 'learning rate')
+cmd:option ('-res', 0, 'use residual network?')
 cmd:text()
 opt = cmd:parse(arg)
 
@@ -34,18 +35,26 @@ timer = torch.Timer ()
 model_path = opt.mod
 if model_path ~= 'nil' then
 	vgg_net = torch.load (opt.mod)
+elseif opt.res == 1 then
+	vgg_net = load_res_net ()
 else
 	vgg_net = load_vgg_net ()
 end
 
 if opt.gpu == 1 then
-	vgg_net:add(nn.Linear(4096, #classes))
+	if opt.res == 1 then
+		vgg_net:add (nn.Linear (2048, #classes))
+	else
+		vgg_net:add(nn.Linear(4096, #classes))
+	end
+
 	vgg_net:add(nn.LogSoftMax())
---	cudnn.convert (vgg_net, cudnn)
-	-- vgg_net.modules[39].weight:uniform(-0.8, 0.8)
-	-- vgg_net.modules[39].bias:uniform(-0.8,0.8)
 	vgg_net:cuda()
 	print (vgg_net)
+	
+	-- vgg_net.modules[39].weight:uniform(-0.8, 0.8)
+	-- vgg_net.modules[39].bias:uniform(-0.8,0.8)
+
 else
 	vgg_net:add(nn.Linear(4096, #classes))
 	vgg_net:add(nn.LogSoftMax())

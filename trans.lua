@@ -27,8 +27,15 @@ function load_data (net)
 
 	print ('[loading data] time elapse: ' .. timer:time().real)
 
---	preprocess_data (trainset.data, 'train/processed/')
---	preprocess_data (testset.data, 'test/processed/')
+	if not paths.dirp ('data') then
+		print ('No data file, start extraction ...')
+		os.execute ('mkdir data')
+		os.execute ('mkdir data/test data/train')
+		os.execute ('mkdir data/test/processed data/train/processed')
+
+		preprocess_data (trainset.data, 'train/processed/')
+		preprocess_data (testset.data, 'test/processed/')
+	end
 
 	print ('[preprocessing data] time elapse: ' .. timer:time().real)
 
@@ -64,7 +71,6 @@ function load_data (net)
 
 		tr_loss_vals = torch.Tensor (tr_losses)
 		te_loss_vals = torch.Tensor (te_losses)
-		-- x_vals = torch.Tensor (tab)
 		tr_accvals = torch.Tensor (tr_acctab)
 		te_accvals = torch.Tensor (te_acctab)
 		t_loss_means = torch.Tensor (loss_means)
@@ -137,6 +143,13 @@ function training (vgg_net, image_labels, fname)
 		r = 123.68
 	}
 
+	optim_state = {
+		learningRate = opt.lrate,
+		weightDecay = opt.twd
+	}
+	weight_decay = opt.twd
+	learning_rate = opt.lrate
+
 	-- randomize inputs and targets
 	indices = torch.randperm(50000)
 
@@ -164,19 +177,12 @@ function training (vgg_net, image_labels, fname)
 
 		end
 
-		print (inputs:mean())
 		inputs[{ {}, {1}, {}, {} }]:add (-vgg_mean.g)
 		inputs[{ {}, {2}, {}, {} }]:add (-vgg_mean.b)
 		inputs[{ {}, {3}, {}, {} }]:add (-vgg_mean.r)
 
-		print (inputs:mean())
-
 		c_inputs = inputs:cuda ()
 		c_targets = targets:cuda ()
-
-		-- optim_state = { learningRate = 0.0000000001, weightDecay = 0.0005 }
-		weight_decay = 0.005
-		learning_rate = opt.lrate
 
 		-- training
 		grad_params:zero()
@@ -188,8 +194,6 @@ function training (vgg_net, image_labels, fname)
 		-- estimate df/dW
 		dloss_dout = criterion:backward (output, c_targets)
 		vgg_net:backward (c_inputs, dloss_dout)
-
-		-- grad_params:div(batch_size) --
 
 		-- gradient clipping
 		-- grad_params:div (grad_params:norm ()):mul (5)
@@ -208,19 +212,12 @@ function training (vgg_net, image_labels, fname)
 		params:add(grad_params:mul(-learning_rate))
 	
 		-- measure the accuracy
-		-- confusion:batchAdd (output, targets)
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
 		-- if i % 600 == 0 then
 			print ('params norm: ' .. params:norm())
 			print ('grad_params norm: ' .. grad_params:norm())
-			-- print ('................................................................' .. i+batch_size-1)
-			
-			-- print (confusion)
-			
-			-- file:writeObject ('.................................................................' .. i)
-			-- file:writeObject (tostring(confusion))
-			
+		
 			print ("Err : " .. loss)
 			print ("Time: " .. timer:time().real)
 			print ('Accuracy: ' .. accuracy)
@@ -228,24 +225,12 @@ function training (vgg_net, image_labels, fname)
 			-- visualization
 			table.insert (time_vals, timer:time().real)
 			table.insert (accs, accuracy)
+			table.insert (loss_vals, loss)
 			
-			bound = 50
-			if loss < bound then
-				table.insert (loss_vals, loss)
-			else
-				table.insert (loss_vals, bound)
-			end
-
-			-- t_time_vals = torch.Tensor (time_vals)
-			-- t_loss_vals = torch.Tensor (loss_vals)
-			-- plot (t_time_vals, t_loss_vals, learning_rate)
-
 			print ('................................................................' .. i+batch_size-1)
-			-- file:writeObject ("current loss: " .. loss)
 		-- end
 	end
 
-	-- print (confusion)
 	print ('Accuracy: ' .. accuracy)
 	print ("Err : " .. loss)
 	print ("Time: " .. timer:time().real)
@@ -277,17 +262,13 @@ function testing (vgg_net, image_labels, fname)
 	loss_vals = {}
 
 	criterion = nn.ClassNLLCriterion():cuda()
-
-	-- file = torch.DiskFile ('test_confusion.txt', 'w')
 	
 	print ('Start testing...........................................................')
-	-- file:writeObject ('Start testing...')
 
 	if opt.gpu == 1 then
 		c_image_labels = image_labels:cuda()
 	end
 	
-	-- confusion = optim.ConfusionMatrix(10)
 	output = torch.DoubleTensor (batch_size, 10)
 
 	indices = torch.randperm(10000)
@@ -298,12 +279,10 @@ function testing (vgg_net, image_labels, fname)
 		r = 123.68
 	}
 
-	-- for i = 1, image_set:size(1) do
 	for i = 1, max_iter, batch_size do
 		inputs = torch.DoubleTensor (batch_size, 3, 224, 224)
 		targets = torch.DoubleTensor (batch_size)
 
---		for bat = 1, batch_size do
 		for bat = i, math.min(max_iter, i+batch_size-1) do
 			idx = bat
 
@@ -333,25 +312,17 @@ function testing (vgg_net, image_labels, fname)
 
 		-- test
 		output = vgg_net:forward (c_inputs)
-		-- loss = criterion:forward (output, targets)
 
-		-- confusion:batchAdd (output, targets)
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
 		table.insert (accs, accuracy)
-		-- table.insert (loss_vals, loss)
 
 		print ('[ ' .. i+29 .. ' / ' .. max_iter .. ' ] Accuracy: ' .. accuracy)
 		print (conf_mat)
 	end
 	print ('..............................................................')
-	-- print (confusion)
 
 	return accuracy
-
-	-- file:writeObject ('.................................................................')
-	
-	-- file:close()
 end
 
 function measure_acc (mat, output, targets)		-- mat : 10 x 10
@@ -431,6 +402,15 @@ function plot_mult (x_val, y_val1, y_val2, xlabel, ylabel1, ylabel2, ylabel, _ti
 	gnuplot.plotflush ()
 	gnuplot.close (p)
 
+end
+
+function  load_res_net()
+	path = '/home/sunwoo/Desktop/two-stream/models/resnet/resnet-101.t7'
+	net = torch.load(path)
+
+	net:remove (net:size())
+
+	return net
 end
 
 -- load vgg net with loadcaffe module
