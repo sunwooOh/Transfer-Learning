@@ -81,9 +81,10 @@ function load_data (net)
 		plot_mult (nil, tr_accvals, te_accvals, 'Epoch', 'Training', 'Validation', 'Accuracy (%)', 'Training and Validation Accuracies')
 		plot (nil, t_loss_means, 'Epoch', 'Loss', 'Training Loss (epc)', 0)
 
-		if i == epochs then
+		if i%10 == 0 then
 			netsav = net:clone('weight', 'bias') 
 			torch.save ('vgg_fine_tuned_' .. i .. '.t7', netsav)
+			netsav = nil
 		end
 	end
 
@@ -214,41 +215,24 @@ function training (vgg_net, image_labels, fname)
 		-- measure the accuracy
 		conf_mat, accuracy = measure_acc (conf_mat, output, targets)
 
-		-- if i % 600 == 0 then
-			print ('params norm: ' .. params:norm())
-			print ('grad_params norm: ' .. grad_params:norm())
-		
-			print ("Err : " .. loss)
-			print ("Time: " .. timer:time().real)
-			print ('Accuracy: ' .. accuracy)
+		print ('params norm: ' .. params:norm())
+		print ('grad_params norm: ' .. grad_params:norm())
+	
+		print ("Err : " .. loss)
+		print ("Time: " .. timer:time().real)
+		print ('Accuracy: ' .. accuracy)
 
-			-- visualization
-			table.insert (time_vals, timer:time().real)
-			table.insert (accs, accuracy)
-			table.insert (loss_vals, loss)
-			
-			print ('................................................................' .. i+batch_size-1)
-		-- end
+		-- visualization
+		table.insert (time_vals, timer:time().real)
+		table.insert (accs, accuracy)
+		table.insert (loss_vals, loss)
+		
+		print ('................................................................' .. i+batch_size-1)
 	end
 
 	print ('Accuracy: ' .. accuracy)
 	print ("Err : " .. loss)
 	print ("Time: " .. timer:time().real)
-
-	----------------------------------------------------------------------------------------------
-	--			Testing with a small set
-	----------------------------------------------------------------------------------------------
-	
-		-- 	print ('..............................................................')
-		-- t_confusion = optim.ConfusionMatrix(10)
-
-		-- -- test
-		-- 	output = vgg_net:forward (c_inputs)
-		-- 	t_confusion:batchAdd (output, targets)
-		
-		-- 	print (t_confusion)
-
-	----------------------------------------------------------------------------------------------
 
 	return time_vals, loss_vals, accuracy
 end
